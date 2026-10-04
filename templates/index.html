@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>STOCKPULSE — Market Intelligence Lab</title>
+  <meta name="description" content="Exploratory Data Analysis on historical stock market data. Price trends, volatility, returns, and correlation analysis.">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <!-- Local styles -->
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  LOADING OVERLAY                                               -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="loading-overlay" aria-live="polite" aria-label="Loading">
+  <div class="loader-ring"></div>
+  <p class="loader-text" id="loading-text">Processing…</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  TOP NAVIGATION (shown after dataset loads)                    -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<nav id="top-nav" role="navigation" aria-label="Main navigation">
+  <div class="nav-glass">
+    <a class="nav-brand" href="#ds-header" aria-label="STOCKPULSE Home">
+      <div class="nav-brand-mark">SP</div>
+      <span class="nav-brand-name">StockPulse</span>
+    </a>
+
+    <ul class="nav-links" role="list">
+      <li><a href="#overview-section">Overview</a></li>
+      <li><a href="#price-section">Price</a></li>
+      <li><a href="#returns-section">Returns</a></li>
+      <li><a href="#volatility-section">Volatility</a></li>
+      <li><a href="#volume-section">Volume</a></li>
+            <li><a href="#data-section">Data</a></li>
+      </ul>
+
+    <div class="nav-actions">
+      <button id="reload-btn" class="btn btn-ghost btn-sm" aria-label="Load another dataset">
+        ↩ New Dataset
+      </button>
+      <button id="hamburger" class="hamburger" aria-label="Open menu" aria-expanded="false">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+          <line x1="2" y1="5"  x2="18" y2="5"/>
+          <line x1="2" y1="10" x2="18" y2="10"/>
+          <line x1="2" y1="15" x2="18" y2="15"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- Mobile nav drawer -->
+<div id="mobile-nav-overlay" class="mobile-nav-overlay" role="presentation"></div>
+<div id="mobile-nav-drawer" class="mobile-nav-drawer" role="dialog" aria-label="Mobile navigation">
+  <div style="margin-bottom:24px;">
+    <div class="nav-brand-name" style="font-size:1rem;">STOCKPULSE</div>
+    <div style="font-size:0.75rem;color:var(--text-dim);margin-top:4px;">Market Intelligence Lab</div>
+  </div>
+  <a class="mobile-nav-link" href="#overview-section">Overview</a>
+  <a class="mobile-nav-link" href="#price-section">01 / Price Behavior</a>
+  <a class="mobile-nav-link" href="#returns-section">02 / Return Distribution</a>
+  <a class="mobile-nav-link" href="#volatility-section">03 / Volatility Lab</a>
+  <a class="mobile-nav-link" href="#volume-section">04 / Market Activity</a>
+    <a class="mobile-nav-link" href="#data-section">06 / Data Explorer</a>
+  </div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  LANDING PAGE                                                  -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<main id="landing">
+
+  <!-- Decorative background lines -->
+  <div class="landing-deco" aria-hidden="true">
+    <div class="deco-line deco-line-h1"></div>
+    <div class="deco-line deco-line-h2"></div>
+    <div class="deco-line deco-line-v1"></div>
+    <div class="deco-line deco-line-v2"></div>
+  </div>
+
+  <!-- Hero -->
+  <div class="landing-tagline">
+    <span>Market Intelligence Lab</span>
+  </div>
+
+  <h1 class="landing-title">
+    Stock Price Trend<br>
+    &amp; <span class="accent">Volatility</span> Analysis
+  </h1>
+
+  <p class="landing-subtitle">
+    Turn historical market data into meaningful insights through exploratory data analysis —
+    price trends, returns, volatility, correlations, and more.
+  </p>
+
+  <div class="landing-actions">
+    <button id="sample-btn" class="btn btn-primary" onclick="if(window.loadSample) window.loadSample()" aria-label="Explore the sample dataset">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      Explore Sample Dataset
+    </button>
+    <button id="upload-landing-btn" class="btn btn-ghost" aria-label="Upload your CSV file">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      Upload CSV
+    </button>
+  </div>
+
+  <!-- Upload Zone -->
+  <div class="upload-section">
+    <div class="upload-section-label">or drag and drop your CSV below</div>
+
+    <div id="drop-zone" class="drop-zone" role="button" tabindex="0"
+         aria-label="Drop CSV file here or click to browse"
+         onkeydown="if(event.key==='Enter'||event.key===' '){document.getElementById('file-input').click()}">
+      <input type="file" id="file-input" accept=".csv" aria-label="Choose CSV file">
+
+      <div class="drop-icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+
+      <div class="drop-title">Drop your CSV here</div>
+      <div class="drop-subtitle">
+        or <span class="drop-browse">browse from your device</span>
+      </div>
+
+      <div class="drop-req">
+        <strong>Required columns:</strong>
+        Date &middot; Open &middot; High &middot; Low &middot; Close &middot; Volume
+      </div>
+    </div>
+
+    <!-- Upload Progress -->
+    <div id="upload-progress">
+      <div class="progress-steps">
+        <div class="progress-step" id="step-upload">
+          <div class="step-dot"></div>
+          <span>Uploading file</span>
+        </div>
+        <div class="progress-step" id="step-validate">
+          <div class="step-dot"></div>
+          <span>Validating columns &amp; data types</span>
+        </div>
+        <div class="progress-step" id="step-calculate">
+          <div class="step-dot"></div>
+          <span>Calculating EDA — returns, volatility, correlations</span>
+        </div>
+        <div class="progress-step" id="step-render">
+          <div class="step-dot"></div>
+          <span>Rendering interactive charts</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error Panel -->
+    <div id="error-panel" role="alert" aria-live="assertive">
+      <div class="error-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        Dataset Validation Failed
+      </div>
+      <ul class="error-list" id="error-list"></ul>
+      <div style="margin-top:12px;font-size:0.8125rem;color:var(--text-muted);">
+        Please ensure your CSV contains: <strong>Date, Open, High, Low, Close, Volume</strong> columns.
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer hint -->
+  <p style="margin-top:48px;font-size:0.75rem;color:var(--text-dim);text-align:center;">
+    No data is stored on the server. Files are processed in-memory and discarded.
+  </p>
+
+</main>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  DASHBOARD                                                     -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="dashboard">
+  <div class="container">
+
+    <!-- ── DATASET HEADER ── -->
+    <section id="ds-header" aria-labelledby="ds-name-heading">
+      <div class="ds-meta">
+        <span class="ds-badge">
+          <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" aria-hidden="true"><circle cx="4" cy="4" r="4"/></svg>
+          Dataset Loaded
+        </span>
+        <span class="label-xs">EDA Dashboard</span>
+      </div>
+      <h2 class="ds-name" id="ds-name-heading" id="ov-dataset-name">—</h2>
+      <div class="ds-detail">
+        <div class="ds-detail-item">
+          Date Range: <strong><span id="ov-date-start">—</span> — <span id="ov-date-end">—</span></strong>
+        </div>
+        <div class="ds-detail-item">
+          Records: <strong><span id="ov-rows">—</span> trading days</strong>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── NORMALIZATION PANEL ── -->
+    <div id="normalization-panel" class="scroll-reveal" style="display:none; margin: 20px 0; padding: 20px; background: rgba(85, 230, 176, 0.05); border: 1px solid rgba(85, 230, 176, 0.2); border-radius: 8px;">
+      <div style="color: var(--accent-mint); font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        Dataset normalized successfully
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; color: var(--text-muted);">
+        <div><strong style="color:var(--text-primary);">Source format:</strong> <span id="fmt-source"></span></div>
+        <div><strong style="color:var(--text-primary);">Detected columns:</strong> <span id="fmt-detected"></span></div>
+        <div><strong style="color:var(--text-primary);">Normalized columns:</strong> <span id="fmt-normalized"></span></div>
+        <div id="fmt-mappings-container" style="display:none;"><strong style="color:var(--text-primary);">Mappings:</strong> <span id="fmt-mappings"></span></div>
+      </div>
+    </div>
+
+    
+
+    <!-- ── DATA QUALITY PANEL ── -->
+    <section id="quality-section" class="scroll-reveal" aria-labelledby="quality-heading">
+      <div class="card" style="margin-bottom: 40px; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+        <div class="card-header" style="border-bottom: 1px solid var(--border); padding: 16px 20px;">
+          <h3 id="quality-heading" class="label-sm" style="margin:0;">Data Quality Report</h3>
+        </div>
+        <div class="card-body" style="padding: 20px;">
+          <div class="quality-grid" style="margin-bottom: 0;">
+        <div class="quality-item">
+          <div class="quality-item-label">Total Rows</div>
+          <div class="quality-item-value text-mint" id="q-rows">—</div>
+        </div>
+        <div class="quality-item">
+          <div class="quality-item-label">Columns</div>
+          <div class="quality-item-value text-mint" id="q-cols">—</div>
+        </div>
+        <div class="quality-item">
+          <div class="quality-item-label">Missing Values</div>
+          <div class="quality-item-value quality-good" id="q-missing">—</div>
+        </div>
+        <div class="quality-item">
+          <div class="quality-item-label">Duplicate Rows</div>
+          <div class="quality-item-value quality-good" id="q-dupes">—</div>
+        </div>
+        <div class="quality-item">
+          <div class="quality-item-label">Invalid Values</div>
+          <div class="quality-item-value quality-good" id="q-invalid">—</div>
+        </div>
+        <div class="quality-item">
+          <div class="quality-item-label">Clean Rows</div>
+          <div class="quality-item-value text-mint" id="q-clean-rows">—</div>
+        </div>
+      </div>
+      </div>
+      <div class="quality-status" style="margin-top: 16px; margin-bottom: 0; padding: 0 20px 20px;">
+        <span id="quality-dot" style="width:8px;height:8px;border-radius:50%;background:var(--accent-mint);display:inline-block;"></span>
+        <span style="font-size:0.8125rem;color:var(--text-muted);">Data Status:</span>
+        <span style="font-weight:700;color:var(--accent-mint);font-size:0.875rem;letter-spacing:0.08em;">READY FOR ANALYSIS</span>
+      </div>
+      </div>
+    </section>
+
+    <!-- ── OVERVIEW METRICS ── -->
+    <section id="overview-section" class="scroll-reveal" aria-labelledby="overview-heading">
+      <h3 id="overview-heading" class="label-sm" style="margin-bottom:16px;">Key Metrics</h3>
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">Last Close</div>
+          <div class="metric-value" id="ov-last-close">—</div>
+          <canvas class="metric-sparkline sparkline" id="sparkline-close" width="120" height="32" aria-hidden="true"></canvas>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">All-Time High</div>
+          <div class="metric-value text-pos" id="ov-high">—</div>
+          <div class="metric-sub">Highest closing price</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">All-Time Low</div>
+          <div class="metric-value text-neg" id="ov-low">—</div>
+          <div class="metric-sub">Lowest closing price</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Avg Daily Return</div>
+          <div class="metric-value" id="ov-avg-return">—</div>
+          <div class="metric-sub">Mean of daily % changes</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Current Volatility</div>
+          <div class="metric-value text-cyan" id="ov-volatility">—</div>
+          <div class="metric-sub">20-day rolling std</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Total Volume</div>
+          <div class="metric-value" id="ov-volume">—</div>
+          <canvas class="metric-sparkline sparkline" id="sparkline-vol" width="120" height="32" aria-hidden="true"></canvas>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Market Trend</div>
+          <div style="margin-top:4px;"><span id="ov-trend" class="status-badge">—</span></div>
+          <div class="metric-sub" style="margin-top:8px;">Based on linear regression</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="sec-divider"></div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- 01 / PRICE BEHAVIOR                                        -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section id="price-section" class="analysis-section scroll-reveal" aria-labelledby="price-heading">
+      <div class="section-header">
+        <div>
+          <div class="section-num">01 / PRICE BEHAVIOR</div>
+          <h2 class="section-title" id="price-heading">How has the stock moved through time?</h2>
+          <p class="section-desc">Closing price trend with optional moving average overlays and time-range filters.</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-end;">
+          <!-- Field toggles -->
+          <div class="toggle-group" role="group" aria-label="Price fields">
+            <button class="toggle-btn active" data-price-field="close" aria-pressed="true">Close</button>
+            <button class="toggle-btn" data-price-field="open"  aria-pressed="false">Open</button>
+            <button class="toggle-btn" data-price-field="high"  aria-pressed="false">High</button>
+            <button class="toggle-btn" data-price-field="low"   aria-pressed="false">Low</button>
+          </div>
+          <!-- MA toggles -->
+          <div class="toggle-group" role="group" aria-label="Moving averages">
+            <button class="toggle-btn" data-ma="ma20" aria-pressed="false">20D MA</button>
+            <button class="toggle-btn" data-ma="ma50" aria-pressed="false">50D MA</button>
+          </div>
+          <!-- Range -->
+          <div class="toggle-group" role="group" aria-label="Time range">
+            <button class="toggle-btn" data-range="1W">1W</button>
+            <button class="toggle-btn" data-range="1M">1M</button>
+            <button class="toggle-btn" data-range="3M">3M</button>
+            <button class="toggle-btn" data-range="6M">6M</button>
+            <button class="toggle-btn" data-range="1Y">1Y</button>
+            <button class="toggle-btn active" data-range="ALL">ALL</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <!-- Chart -->
+        <div class="chart-wrapper">
+          <div class="chart-title">Closing Price Over Time</div>
+          <div class="chart-container" style="height:320px;">
+            <canvas id="price-chart" aria-label="Stock price chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Stat sidebar -->
+        <div class="stat-sidebar">
+          <div class="stat-row">
+            <div class="stat-row-label">Trend</div>
+            <div><span id="price-trend-badge" class="status-badge">—</span></div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-row-label">Trend Strength (R²)</div>
+            <div class="stat-row-value" id="price-trend-strength">—</div>
+            <div class="stat-row-sub">How consistently price moved in one direction</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-row-label">Total Price Change</div>
+            <div class="stat-row-value" id="price-change-pct">—</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-row-label">Highest Close</div>
+            <div class="stat-row-value" id="price-high">—</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-row-label">Lowest Close</div>
+            <div class="stat-row-value" id="price-low">—</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- 02 / RETURN DISTRIBUTION                                   -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section id="returns-section" class="analysis-section scroll-reveal" aria-labelledby="returns-heading">
+      <div class="section-header">
+        <div>
+          <div class="section-num">02 / RETURN DISTRIBUTION</div>
+          <h2 class="section-title" id="returns-heading">Daily return patterns</h2>
+          <p class="section-desc">
+            Understanding the frequency and magnitude of daily price changes.<br>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.85em; opacity: 0.7;">Daily Return = ((Today's Close - Previous Close) / Previous Close) × 100</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- METRICS ROW -->
+      <div class="metrics-row">
+        <div class="stat-box">
+          <div class="stat-label">Average Return</div>
+          <div class="stat-value" id="ret-avg">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Standard Deviation</div>
+          <div class="stat-value" id="ret-std">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Positive Days</div>
+          <div class="stat-value text-pos" id="ret-pos-pct">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Negative Days</div>
+          <div class="stat-value text-neg" id="ret-neg-pct">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Within ±2%</div>
+          <div class="stat-value" id="ret-within2">—</div>
+        </div>
+      </div>
+
+      <!-- CHART ROW -->
+      <div class="charts-row">
+        <div class="chart-wrapper">
+          <div class="chart-title">Daily Returns (%)</div>
+          <div class="canvas-container" style="height: 280px; position: relative;">
+            <canvas id="returns-chart" aria-label="Daily returns time-series chart"></canvas>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <div class="chart-title">Return Frequency Distribution</div>
+          <div class="canvas-container" style="height: 280px; position: relative;">
+            <canvas id="histogram-chart" aria-label="Returns histogram"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUMMARY ROW -->
+      <div class="summary-row">
+        <div class="summary-card">
+          <div class="summary-card-title">Max Daily Gain</div>
+          <div class="summary-card-val text-pos" id="ret-max-gain">—</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-card-title">Max Daily Loss</div>
+          <div class="summary-card-val text-neg" id="ret-max-loss">—</div>
+        </div>
+        <div class="summary-card formula-card">
+          <div class="summary-card-title">Calculation Details</div>
+          <div class="formula-text">
+            Daily returns represent the percentage change in the closing price from the previous trading day.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- 03 / VOLATILITY LAB                                        -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section id="volatility-section" class="analysis-section scroll-reveal" aria-labelledby="vol-heading">
+      <div class="section-header">
+        <div>
+          <div class="section-num">03 / VOLATILITY LAB</div>
+          <h2 class="section-title" id="vol-heading">Price fluctuation magnitude</h2>
+          <p class="section-desc">
+            Rolling 20-day standard deviation of daily returns.
+            Volatility describes fluctuation magnitude — it does <em>not</em> predict future direction.
+          </p>
+        </div>
+        <div>
+          <span id="vol-status-badge" class="status-badge" style="font-size:0.875rem;padding:8px 14px;">—</span>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="chart-wrapper">
+          <div class="chart-title">20-Day Rolling Volatility</div>
+          <div class="chart-container" style="height:300px;">
+            <canvas id="volatility-chart" aria-label="Rolling volatility chart"></canvas>
+          </div>
+        </div>
+
+        <div class="stat-sidebar">
+          <div class="stat-row">
+            <div class="stat-row-label">Current Volatility</div>
+            <div class="stat-row-value" id="vol-current">—</div>
+            <div class="stat-row-sub">20-day trailing std of returns</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-row-label">Average Volatility</div>
+            <div class="stat-row-value" id="vol-average">—</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-row-label">Maximum Volatility</div>
+            <div class="stat-row-value text-neg" id="vol-maximum">—</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-row-label">Minimum Volatility</div>
+            <div class="stat-row-value text-pos" id="vol-minimum">—</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-row-label">Annualised Volatility</div>
+            <div class="stat-row-value" id="vol-annualised" data-tooltip="Current vol × √252">—</div>
+            <div class="stat-row-sub">Current vol × √252 trading days</div>
+          </div>
+          <div class="stat-row" style="border-bottom:none;">
+            <div class="stat-row-label">High Volatility Dates</div>
+            <div id="high-vol-dates" class="vol-dates-list" style="margin-top:8px;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- 04 / MARKET ACTIVITY (VOLUME)                              -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section id="volume-section" class="analysis-section scroll-reveal" aria-labelledby="volume-heading">
+      <div class="section-header">
+        <div>
+          <div class="section-num">04 / MARKET ACTIVITY</div>
+          <h2 class="section-title" id="volume-heading">Trading volume patterns</h2>
+          <p class="section-desc">
+            Volume indicates market participation. Unusual spikes often coincide with significant price events.
+          </p>
+        </div>
+        <div class="stat-sidebar" style="padding:14px 18px;min-width:220px;">
+          <div class="stat-row">
+            <div class="stat-row-label">Average Volume</div>
+            <div class="stat-row-value" id="vol-avg">—</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-row-label">Highest Volume Day</div>
+            <div class="stat-row-value text-pos" id="vol-highest">—</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-row-label">Lowest Volume Day</div>
+            <div class="stat-row-value" id="vol-lowest">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="two-col-eq" style="margin-bottom:20px;">
+        <div class="chart-wrapper">
+          <div class="chart-title">Daily Trading Volume</div>
+          <div class="chart-container" style="height:280px;">
+            <canvas id="volume-chart" aria-label="Volume bar chart"></canvas>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <div class="chart-title">Price vs. Volume Comparison</div>
+          <div class="chart-container" style="height:280px;">
+            <canvas id="price-vol-chart" aria-label="Price vs volume chart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+  
+    <!-- ================================================================================================== -->
+    <!-- 06 / DATA EXPLORER                                         -->
+    <!-- ================================================================================================== -->
+    <section id="data-section" class="analysis-section scroll-reveal" aria-labelledby="data-heading">
+      <div class="section-header" style="flex-direction:row; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px;">
+        <div>
+          <div class="section-num">06 / DATA EXPLORER</div>
+          <h2 class="section-title" id="data-heading">Explore the processed dataset</h2>
+          <p class="section-desc">Search, sort, and review the final normalized dataset before downloading.</p>
+        </div>
+        <button id="download-btn" class="btn btn-primary btn-sm">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Download Processed CSV
+        </button>
+      </div>
+
+      <div class="data-table-container">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:12px;">
+          <input type="text" id="table-search" class="search-input" placeholder="Search data...">
+          <div style="font-size:0.8125rem; color:var(--text-muted);">
+            Showing <span id="table-count" style="color:var(--text);">—</span> 
+            (<span id="table-col-count">—</span>)
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead>
+              <tr id="table-head"></tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </section>
+
+    </div><!-- /#dashboard -->
+
+<!-- Application Script -->
+<script src="/static/js/app_v2.js?v=1791112526"></script>
+</body>
+</html>
